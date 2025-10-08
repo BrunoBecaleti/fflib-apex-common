@@ -9,7 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    
     steps:
       # Checkout repository
       - uses: actions/checkout@v2
@@ -24,11 +23,11 @@ jobs:
           unzip pmd-dist-7.17.0-bin.zip
           echo "$(pwd)/pmd-bin-7.17.0/bin" >> $GITHUB_PATH
 
-      # Run PMD Static Analysis
+      # Run PMD Static Analysis on correct folder
       - name: Run PMD Static Analysis
         run: |
           pmd check \
-            --dir force-app \
+            --dir sfdx-source/apex-common/main/classes \
             --rulesets category/apex/design.xml,category/apex/bestpractices.xml,category/apex/performance.xml \
             --format text \
             --report-file pmd-report.txt
@@ -58,9 +57,9 @@ jobs:
         with:
           sfdx-auth-url: ${{ secrets.DEVHUB_SFDXURL }}
 
-      # Setup the config parameters
+      # Setup the config parameters (troque "MeuDevHubAlias" pelo alias do seu DevHub)
       - name: Setup the config parameters needed
-        run: sf config set target-dev-hub SFDX-ENV --global
+        run: sf config set target-dev-hub MeuDevHubAlias --global
 
       # Create Scratch Org
       - name: Create the scratch org
