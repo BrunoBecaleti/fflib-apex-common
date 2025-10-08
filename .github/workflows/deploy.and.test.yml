@@ -10,26 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ------------------------------
       # Checkout repository
-      # ------------------------------
       - uses: actions/checkout@v2
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
 
-      # ------------------------------
       # Install PMD
-      # ------------------------------
       - name: Install PMD
         run: |
           wget https://github.com/pmd/pmd/releases/download/pmd_releases/7.4.0/pmd-bin-7.4.0.zip
           unzip pmd-bin-7.4.0.zip -d pmd
           echo "$(pwd)/pmd/pmd-bin-7.4.0/bin" >> $GITHUB_PATH
 
-      # ------------------------------
       # Run PMD Static Analysis
-      # ------------------------------
       - name: Run PMD Static Analysis
         run: |
           pmd check \
@@ -38,9 +32,7 @@ jobs:
             --format text \
             --report-file pmd-report.txt
 
-      # ------------------------------
       # Fail Build if High Priority Issues Found
-      # ------------------------------
       - name: Fail if PMD finds high-priority issues
         run: |
           if grep -q "priority: [1-3]" pmd-report.txt; then
@@ -51,9 +43,7 @@ jobs:
             echo "✅ No high-priority PMD issues found"
           fi
 
-      # ------------------------------
       # Upload PMD Report
-      # ------------------------------
       - name: Upload PMD Report
         if: always()
         uses: actions/upload-artifact@v4
@@ -61,62 +51,44 @@ jobs:
           name: pmd-report
           path: pmd-report.txt
 
-      # ------------------------------
       # Install SF CLI and authorize DevHub
-      # ------------------------------
       - name: Install SF CLI and authorize DevHub
         uses: apex-enterprise-patterns/setup-sfdx@v2
         with:
           sfdx-auth-url: ${{ secrets.DEVHUB_SFDXURL }}
 
-      # ------------------------------
       # Setup the config parameters
-      # ------------------------------
       - name: Setup the config parameters needed
         run: sf config set target-dev-hub SFDX-ENV --global
 
-      # ------------------------------
       # Create Scratch Org
-      # ------------------------------
       - name: Create the scratch org
         run: sf org create scratch --definition-file config/project-scratch-def.json --set-default --duration-days 1 --no-track-source --alias fflibapexcommon
 
-      # ------------------------------
       # Install dependency: fflib-apex-mocks
-      # ------------------------------
       - name: Clone fflib-apex-mocks repo
         run: mkdir temp && git clone https://github.com/apex-enterprise-patterns/fflib-apex-mocks.git "temp/fflib-apex-mocks"
 
       - name: Deploy and compile the fflib-apex-mocks codebase
         run: cd temp/fflib-apex-mocks && sf project deploy start --ignore-conflicts --target-org fflibapexcommon && cd ../..
 
-      # ------------------------------
       # Deploy and compile the project code
-      # ------------------------------
       - name: Deploy and compile the codebase
         run: sf project deploy start
 
-      # ------------------------------
       # Run core framework tests
-      # ------------------------------
       - name: Run the core framework tests
         run: sf apex run test --wait 5
 
-      # ------------------------------
       # Install sample code for verification
-      # ------------------------------
       - name: Install sample code project to verify with
         run: git clone https://github.com/apex-enterprise-patterns/fflib-apex-common-samplecode.git "temp/fflib-apex-common-samplecode" && cd temp/fflib-apex-common-samplecode && sf project deploy start --ignore-conflicts --target-org fflibapexcommon && cd ../..
 
-      # ------------------------------
       # Run all tests including sample code
-      # ------------------------------
       - name: Run the core framework tests and the sample code project tests
         run: sf apex run test --wait 5
 
-      # ------------------------------
       # Destroy scratch org
-      # ------------------------------
       - name: Destroy scratch org
         run: sf org delete scratch --no-prompt
         if: always()
