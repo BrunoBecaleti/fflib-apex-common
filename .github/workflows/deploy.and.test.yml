@@ -16,12 +16,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
 
-      # Install PMD
+      # Install PMD (snapshot version)
       - name: Install PMD
         run: |
-          wget https://github.com/pmd/pmd/releases/download/pmd_releases/7.0.0/pmd-dist-7.0.0.zip
-          unzip pmd-dist-7.0.0.zip -d pmd
-          echo "$(pwd)/pmd/pmd-dist-7.0.0/bin" >> $GITHUB_PATH
+          wget https://github.com/pmd/pmd/releases/download/pmd_releases/7.18.0-SNAPSHOT/pmd-dist-7.18.0-SNAPSHOT.zip
+          unzip pmd-dist-7.18.0-SNAPSHOT.zip -d pmd
+          echo "$(pwd)/pmd/pmd-dist-7.18.0-SNAPSHOT/bin" >> $GITHUB_PATH
 
       # Run PMD Static Analysis
       - name: Run PMD Static Analysis
