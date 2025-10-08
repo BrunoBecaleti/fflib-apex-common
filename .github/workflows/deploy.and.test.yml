@@ -16,14 +16,14 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
 
-      # Install PMD 7.17.0
+      # Instalar PMD 7.17.0
       - name: Install PMD
         run: |
           wget https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.17.0/pmd-dist-7.17.0-bin.zip
           unzip pmd-dist-7.17.0-bin.zip
           echo "$(pwd)/pmd-bin-7.17.0/bin" >> $GITHUB_PATH
 
-      # Run PMD Static Analysis on correct folder
+      # Rodar análise PMD na pasta correta
       - name: Run PMD Static Analysis
         run: |
           pmd check \
@@ -32,18 +32,23 @@ jobs:
             --format text \
             --report-file pmd-report.txt
 
-      # Fail Build if High Priority Issues Found
+      # Exibir conteúdo do relatório PMD nos logs
+      - name: Exibir conteúdo do PMD Report
+        if: always()
+        run: cat pmd-report.txt
+
+      # Falhar build se encontrar violations de prioridade 1 a 3
       - name: Fail if PMD finds high-priority issues
         run: |
           if grep -q "priority: [1-3]" pmd-report.txt; then
-            echo "❌ PMD found high-priority issues"
+            echo "❌ PMD encontrou issues de alta prioridade"
             cat pmd-report.txt
             exit 1
           else
-            echo "✅ No high-priority PMD issues found"
+            echo "✅ Nenhum issue de alta prioridade encontrado pelo PMD"
           fi
 
-      # Upload PMD Report
+      # Fazer upload do relatório PMD como artefato
       - name: Upload PMD Report
         if: always()
         uses: actions/upload-artifact@v4
@@ -51,44 +56,44 @@ jobs:
           name: pmd-report
           path: pmd-report.txt
 
-      # Install SF CLI and authorize DevHub
+      # Instalar Salesforce CLI e autorizar DevHub
       - name: Install SF CLI and authorize DevHub
         uses: apex-enterprise-patterns/setup-sfdx@v2
         with:
           sfdx-auth-url: ${{ secrets.DEVHUB_SFDXURL }}
 
-      # Setup the config parameters (troque "MeuDevHubAlias" pelo alias do seu DevHub)
+      # Configurar o alias do DevHub (troque 'MeuDevHubAlias' pelo seu alias real!)
       - name: Setup the config parameters needed
         run: sf config set target-dev-hub MeuDevHubAlias --global
 
-      # Create Scratch Org
+      # Criar Scratch Org
       - name: Create the scratch org
         run: sf org create scratch --definition-file config/project-scratch-def.json --set-default --duration-days 1 --no-track-source --alias fflibapexcommon
 
-      # Install dependency: fflib-apex-mocks
+      # Instalar dependência fflib-apex-mocks
       - name: Clone fflib-apex-mocks repo
         run: mkdir temp && git clone https://github.com/apex-enterprise-patterns/fflib-apex-mocks.git "temp/fflib-apex-mocks"
 
       - name: Deploy and compile the fflib-apex-mocks codebase
         run: cd temp/fflib-apex-mocks && sf project deploy start --ignore-conflicts --target-org fflibapexcommon && cd ../..
 
-      # Deploy and compile the project code
+      # Deploy e compilação do código do projeto
       - name: Deploy and compile the codebase
         run: sf project deploy start
 
-      # Run core framework tests
+      # Rodar testes do framework principal
       - name: Run the core framework tests
         run: sf apex run test --wait 5
 
-      # Install sample code for verification
+      # Instalar código de exemplo para validação
       - name: Install sample code project to verify with
         run: git clone https://github.com/apex-enterprise-patterns/fflib-apex-common-samplecode.git "temp/fflib-apex-common-samplecode" && cd temp/fflib-apex-common-samplecode && sf project deploy start --ignore-conflicts --target-org fflibapexcommon && cd ../..
 
-      # Run all tests including sample code
+      # Rodar todos os testes incluindo o sample code
       - name: Run the core framework tests and the sample code project tests
         run: sf apex run test --wait 5
 
-      # Destroy scratch org
+      # Destruir o scratch org ao final
       - name: Destroy scratch org
         run: sf org delete scratch --no-prompt
         if: always()
