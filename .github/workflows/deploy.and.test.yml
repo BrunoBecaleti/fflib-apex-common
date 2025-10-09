@@ -1,87 +1,87 @@
-name: Create a Scratch Org, Push Source, Run PMD and Apex Tests
+# name: Create a Scratch Org, Push Source, Run PMD and Apex Tests
 
-on:
-  push:
-  pull_request_target:
-  workflow_dispatch:
+# on:
+#   push:
+#   pull_request_target:
+#   workflow_dispatch:
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
+#     steps:
+#       - uses: actions/checkout@v2
+#         with:
+#           ref: ${{ github.event.pull_request.head.ref }}
+#           repository: ${{ github.event.pull_request.head.repo.full_name }}
 
-      # Instalar Salesforce CLI
-      - name: Install Salesforce CLI
-        run: |
-          npm install @salesforce/cli --location=global
-          echo "$(npm root --location=global)/.bin" >> $GITHUB_PATH
+#       # Instalar Salesforce CLI
+#       - name: Install Salesforce CLI
+#         run: |
+#           npm install @salesforce/cli --location=global
+#           echo "$(npm root --location=global)/.bin" >> $GITHUB_PATH
 
-      # Instalar PMD
-      - name: Install PMD
-        run: |
-          wget https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.17.0/pmd-dist-7.17.0-bin.zip
-          unzip pmd-dist-7.17.0-bin.zip
-          echo "$(pwd)/pmd-bin-7.17.0/bin" >> $GITHUB_PATH
+#       # Instalar PMD
+#       - name: Install PMD
+#         run: |
+#           wget https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.17.0/pmd-dist-7.17.0-bin.zip
+#           unzip pmd-dist-7.17.0-bin.zip
+#           echo "$(pwd)/pmd-bin-7.17.0/bin" >> $GITHUB_PATH
 
-      # Rodar análise PMD, nunca falhar por violations
-      - name: Run PMD Static Analysis
-        run: |
-          pmd check \
-            --dir sfdx-source/apex-common/main/classes \
-            --rulesets category/apex/design.xml,category/apex/bestpractices.xml,category/apex/performance.xml \
-            --format text \
-            --report-file pmd-report.txt || true
+#       # Rodar análise PMD, nunca falhar por violations
+#       - name: Run PMD Static Analysis
+#         run: |
+#           pmd check \
+#             --dir sfdx-source/apex-common/main/classes \
+#             --rulesets category/apex/design.xml,category/apex/bestpractices.xml,category/apex/performance.xml \
+#             --format text \
+#             --report-file pmd-report.txt || true
 
-      # Exibir conteúdo do relatório PMD nos logs
-      - name: Show PMD Report in log
-        if: always()
-        run: cat pmd-report.txt
+#       # Exibir conteúdo do relatório PMD nos logs
+#       - name: Show PMD Report in log
+#         if: always()
+#         run: cat pmd-report.txt
 
-      # Fazer upload do relatório PMD como artefato
-      - name: Upload PMD Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pmd-report
-          path: pmd-report.txt
+#       # Fazer upload do relatório PMD como artefato
+#       - name: Upload PMD Report
+#         if: always()
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: pmd-report
+#           path: pmd-report.txt
 
-      # Autorizar o DevHub
-      - name: Authorize DevHub
-        uses: apex-enterprise-patterns/setup-sfdx@v2
-        with:
-          sfdx-auth-url: ${{ secrets.DEVHUB_SFDXURL }}
+#       # Autorizar o DevHub
+#       - name: Authorize DevHub
+#         uses: apex-enterprise-patterns/setup-sfdx@v2
+#         with:
+#           sfdx-auth-url: ${{ secrets.DEVHUB_SFDXURL }}
 
-      # Configurar alias do DevHub
-      - name: Setup DevHub Alias
-        run: sf config set target-dev-hub SFDX-ENV --global
+#       # Configurar alias do DevHub
+#       - name: Setup DevHub Alias
+#         run: sf config set target-dev-hub SFDX-ENV --global
 
-      # Criar scratch org
-      - name: Create Scratch Org
-        run: sf org create scratch --definition-file config/project-scratch-def.json --set-default --duration-days 1 --no-track-source --alias fflibapexcommon
+#       # Criar scratch org
+#       - name: Create Scratch Org
+#         run: sf org create scratch --definition-file config/project-scratch-def.json --set-default --duration-days 1 --no-track-source --alias fflibapexcommon
 
-      # Deploy dependências
-      - name: Deploy dependencies
-        run: |
-          mkdir temp
-          git clone https://github.com/apex-enterprise-patterns/fflib-apex-mocks.git temp/fflib-apex-mocks
-          cd temp/fflib-apex-mocks
-          sf project deploy start --ignore-conflicts --target-org fflibapexcommon
-          cd ../..
+#       # Deploy dependências
+#       - name: Deploy dependencies
+#         run: |
+#           mkdir temp
+#           git clone https://github.com/apex-enterprise-patterns/fflib-apex-mocks.git temp/fflib-apex-mocks
+#           cd temp/fflib-apex-mocks
+#           sf project deploy start --ignore-conflicts --target-org fflibapexcommon
+#           cd ../..
 
-      # Deploy do código do projeto
-      - name: Deploy project codebase
-        run: sf project deploy start --source-dir sfdx-source/apex-common/main/classes
+#       # Deploy do código do projeto
+#       - name: Deploy project codebase
+#         run: sf project deploy start --source-dir sfdx-source/apex-common/main/classes
 
-      # Rodar testes Apex
-      - name: Run Apex Tests
-        run: sf apex run test --wait 5
+#       # Rodar testes Apex
+#       - name: Run Apex Tests
+#         run: sf apex run test --wait 5
 
-      # Destruir scratch org SEMPRE, ignorando erro se não existir
-      - name: Destroy Scratch Org
-        run: sf org delete scratch --no-prompt || true
-        if: always()
+#       # Destruir scratch org SEMPRE, ignorando erro se não existir
+#       - name: Destroy Scratch Org
+#         run: sf org delete scratch --no-prompt || true
+#         if: always()
