@@ -1,0 +1,71 @@
+name: Validate Salesforce Changes on PR
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout do código do PR
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      # Instalar Salesforce CLI
+      - name: Install Salesforce CLI
+        run: |
+          npm install @salesforce/cli --location=global
+          echo "$(npm root --location=global)/.bin" >> $GITHUB_PATH
+
+      # Autorizar DevHub
+      - name: Authorize DevHub
+        uses: apex-enterprise-patterns/setup-sfdx@v2
+        with:
+          sfdx-auth-url: ${{ secrets.DEVHUB_SFDXURL }}
+
+      # Criar Scratch Org temporária
+      - name: Create Scratch Org
+        run: sf org create scratch --definition-file config/project-scratch-def.json --set-default --duration-days 1 --alias pr-validate --no-track-source
+
+      # Deploy das dependências (ex: mocks)
+      - name: Deploy dependencies
+        run: |
+          mkdir temp
+          git clone https://github.com/apex-enterprise-patterns/fflib-apex-mocks.git temp/fflib-apex-mocks
+          cd temp/fflib-apex-mocks
+          sf project deploy start --ignore-conflicts --target-org pr-validate
+          cd ../..
+
+      # Gerar diff (entre PR e branch base)
+      - name: Determine Changed Components
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git diff --name-only origin/${{ github.base_ref }}...HEAD > changed_files.txt
+          cat changed_files.txt
+
+      # Validar apenas o que mudou
+      - name: Validate Changed Components
+        run: |
+          mkdir changed-src
+          while read file; do
+            if [[ -f "$file" ]]; then
+              mkdir -p changed-src/$(dirname "$file")
+              cp "$file" changed-src/"$file"
+            fi
+          done < changed_files.txt
+
+          sf project deploy validate --source-dir changed-src --target-org pr-validate --ignore-conflicts
+
+      # Rodar testes Apex
+      - name: Run Apex Tests
+        run: sf apex run test --wait 10 --target-org pr-validate
+
+      # Destruir Scratch Org (sempre)
+      - name: Delete Scratch Org
+        if: always()
+        run: sf org delete scratch --no-prompt --target-org pr-validate || true
